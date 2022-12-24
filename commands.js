@@ -22,7 +22,6 @@ rest.get(Routes.applicationGuildCommands(process.env.APP_ID, process.env.GUILD_I
     });
 
 
-
 (async () => {
   try {
     console.log('Started refreshing application (/) commands.');
