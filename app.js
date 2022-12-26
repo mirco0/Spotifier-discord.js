@@ -1,4 +1,7 @@
 require('dotenv').config()
+const ytdl = require('ytdl-core');
+const yts = require( 'yt-search' )
+
 const { Client, GatewayIntentBits, GatewayDispatchEvents, Events, Colors } = require('discord.js');
 
 const client = new Client({ intents: [GatewayIntentBits.GuildMessages,GatewayIntentBits.Guilds,GatewayIntentBits.GuildVoiceStates 
@@ -10,22 +13,46 @@ client.on(Events.ClientReady, () => {
   console.log(`Logged in as ${client.user.tag}!`);
 });
 
-var userID;
+var userID,channelId;
+
+//TODO:
+/*
+    1. make the music seekable
+    2. add pause option
+    3. make the bot automatically disconnect when idle for too long
+    4. reafctoring
+
+*/
 
 client.on(Events.InteractionCreate, async interaction => {
     if (!interaction.isChatInputCommand()) return;
 
     if (interaction.commandName === 'followme'){
         
-        let voiceChannelId = getUserVoiceChannel(interaction.member.voice.channel);
+        /*
+
+        > check if the user is in a voice channel ✓
+        > joins it ✓
+        > gets update about it's spotify presence (seek if needed) 
+        > plays the song ✓
         
+        < if paused for one minute leave the voice channel
+        
+        */
+        
+        let voiceChannelId = getUserVoiceChannel(interaction.member.voice.channel);
         if(voiceChannelId){
-            connectVoiceChannel(voiceChannelId);
-            interaction.reply("Playing");
+
             userID = interaction.user.id;
-            getPlayingSong(interaction.member.presence);
+            channelId = voiceChannelId;
+            
+            var presence = interaction.member.presence;
+            fetchAndPlay(voiceChannelId,presence,error => {
+                interaction.reply({content: error,ephemeral: true});
+            });
+        
         }else{
-            interaction.reply("Devi essere connesso a un canale vocale");
+            interaction.reply({content: "Devi essere connesso a un canale vocale",ephemeral: true});
         }
         
     }
@@ -33,12 +60,34 @@ client.on(Events.InteractionCreate, async interaction => {
 });
 
 client.on(Events.PresenceUpdate, async (oldPresence, newPresence)  => {
+    
+    /*
+    check if new presence comes from the same users to that
+    */
 
     if(newPresence.userId == userID){
-
+        fetchAndPlay(channelId, newPresence, error => {
+            channelId.send(error);
+        });
+        console.log("Updated(?)");
     }
     
 });
+
+async function fetchAndPlay(voiceChannelId,presence, callback){
+    
+    var connection = connectVoiceChannel(voiceChannelId);
+    var song = getPlayingSong(presence);
+
+    if(song.name){
+        var url = await findSong(song);
+        playSong(connection,url);
+        console.log("Playing "+url);
+        callback("Playing");
+    }else{
+        callback("Devi ascoltare una canzone su spotify");
+    }
+}
 
 function getUserVoiceChannel(voice){
     if(voice != null)
@@ -47,40 +96,58 @@ function getUserVoiceChannel(voice){
 
 function connectVoiceChannel(channel){
     
-    console.log(`Joined Voice Channel: "${channel.name}"`);
-    const player = createAudioPlayer();
-
+    //console.log(`Joined Voice Channel: "${channel.name}"`);
+    
     const connection = joinVoiceChannel({
         channelId: channel.id,
         guildId: channel.guild.id,
         adapterCreator: channel.guild.voiceAdapterCreator,
     });
-
-    const resource = createAudioResource('');
-	player.play(resource);
-
-    const subscription = connection.subscribe(player);
-
+    
+    return connection;
 }
 
+/*
+return song object {name, author} or undefined
+*/
 function getPlayingSong(presence){
 
+    /*
+    if not online disconnect and logout(?) 
+    */
     if(presence.status != 'online') return;
-    
+   
     var activities = presence.activities;
+    
+    var song =  {
+       name: undefined,
+       author: undefined
+    }
     
     activities.forEach(activity => {
         if(activity.name == 'Spotify'){
-            console.log(`listening to "${activity.details}" by "${activity.state}" at $()`);
-            return activity.details, activity.state;
+            //console.log(`listening to "${activity.details}" by "${activity.state}" at $()`);
+            song.name = activity.details;
+            song.author = activity.state;
+            return song;
         }
     });
     
-    return;
+    return song;
 }
 
-function downloadSong(){
+async function findSong(song){
+    var search = await yts(song.name+" "+ song.author +" "+ process.env.SEARCH);
+    return search.videos[0].url; 
+}
 
+function playSong(connection, url){
+
+    const stream = ytdl(url, { filter: 'audioonly', quality: 'highestaudio'})
+    const resource = createAudioResource(stream);
+    const player = createAudioPlayer();
+    connection.subscribe(player);
+    player.play(resource);
 }
 
 
