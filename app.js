@@ -1,6 +1,5 @@
 require('dotenv').config()
-const ytdl = require('ytdl-core');
-const yts = require( 'yt-search' )
+const play = require('play-dl')
 
 const { Client, GatewayIntentBits, GatewayDispatchEvents, Events, Colors } = require('discord.js');
 
@@ -67,7 +66,7 @@ client.on(Events.PresenceUpdate, async (oldPresence, newPresence)  => {
 
     if(newPresence.userId == userID){
         fetchAndPlay(channelId, newPresence, error => {
-            channelId.send(error);
+            // channelId.send(error); temporarly disabled
         });
         console.log("Updated(?)");
     }
@@ -80,10 +79,12 @@ async function fetchAndPlay(voiceChannelId,presence, callback){
     var song = getPlayingSong(presence);
 
     if(song.name){
+        
         var url = await findSong(song);
         playSong(connection,url);
         console.log("Playing "+url);
         callback("Playing");
+
     }else{
         callback("Devi ascoltare una canzone su spotify");
     }
@@ -137,17 +138,25 @@ function getPlayingSong(presence){
 }
 
 async function findSong(song){
-    var search = await yts(song.name+" "+ song.author +" "+ process.env.SEARCH);
-    return search.videos[0].url; 
+    
+    console.log(`searching query "${song.name} ${song.author} ${process.env.SEARCH}"`);
+    let searched = await play.search(`${song.name} ${song.author} ${process.env.SEARCH}`, { limit: 1 });
+        
+    return searched[0].url;
+    
 }
 
-function playSong(connection, url){
+async function playSong(connection, url){
+    
+    let stream = await play.stream(url);
+    let resource = createAudioResource(stream.stream, {
+        inputType: stream.type
+    });
 
-    const stream = ytdl(url, { filter: 'audioonly', quality: 'highestaudio'})
-    const resource = createAudioResource(stream);
     const player = createAudioPlayer();
     connection.subscribe(player);
     player.play(resource);
+
 }
 
 
