@@ -5,12 +5,15 @@ const { Client, GatewayIntentBits, GatewayDispatchEvents, Events, Colors } = req
 
 const client = new Client({ intents: [GatewayIntentBits.GuildMessages,GatewayIntentBits.Guilds,GatewayIntentBits.GuildVoiceStates 
     ,GatewayIntentBits.GuildPresences, GatewayIntentBits.MessageContent, GatewayIntentBits.GuildMembers]});
-
-const { generateDependencyReport, AudioPlayerStatus, createAudioPlayer, createAudioResource, getVoiceConnection, joinVoiceChannel } = require('@discordjs/voice');
-
-client.on(Events.ClientReady, () => {
-  console.log(`Logged in as ${client.user.tag}!`);
+    
+    const { generateDependencyReport, AudioPlayerStatus, createAudioPlayer, createAudioResource, getVoiceConnection, joinVoiceChannel } = require('@discordjs/voice');
+    
+    client.on(Events.ClientReady, () => {
+        console.log(`Logged in as ${client.user.tag}!`);
+        const player = createAudioPlayer();
 });
+
+const player = createAudioPlayer();
 
 var userID,channelId,voiceChannelId,channel;
 
@@ -37,7 +40,7 @@ client.on(Events.InteractionCreate, async interaction => {
         > gets update about it's spotify presence (seek if needed) 
         > plays the song ✓
         
-        < if paused for one minute leave the voice channel
+        < if paused for one minute leave the voice channel ✓
         
         */
         channel = interaction.channel;
@@ -181,9 +184,13 @@ async function playSong(connection, url){
         inputType: stream.type
     });
 
-    const player = createAudioPlayer();
     connection.subscribe(player);
     player.play(resource);
+    
+    //Check 60 seconds after the last track finished to quit the voice channel
+    player.on(AudioPlayerStatus.Idle, () => {
+        setTimeout(checkAndDisconnect,60000,connection,player);
+    });
 }
 
 async function createPlayingSongMessage(song,messageInfo,callback){
@@ -196,6 +203,19 @@ async function createPlayingSongMessage(song,messageInfo,callback){
             }
         }
         callback(embed);
+}
+
+function checkAndDisconnect(connection,player){
+    if(player.state.status != AudioPlayerStatus.Playing){
+        connection.disconnect();
+        console.log(`Disconnected Voice Channel: "${voiceChannelId.name}"`);
+        resetVariables();
+    }
+}
+
+function resetVariables(){
+    userID = channelId = voiceChannelId = channel = undefined;
+    times = 0;
 }
 
 client.login(process.env.DISCORD_TOKEN);
