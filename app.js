@@ -68,7 +68,26 @@ client.on(Events.InteractionCreate, async interaction => {
         }
         
     }
-    
+    //TODO: APPLY DRY
+    if (interaction.commandName === 'play'){
+        resetVariables();
+        channel = interaction.channel;
+        voiceChannelId = getUserVoiceChannel(interaction.member.voice.channel);
+        if(voiceChannelId){
+            manualPlay(voiceChannelId,interaction.options.getString('input'),
+                (song,messageInfo) => {
+                    createPlayingSongMessage(song,messageInfo,
+                        embed => {
+                            interaction.reply({embeds:[embed]});
+                        });
+                },
+                error => {
+                    interaction.reply({content: error,ephemeral: true});
+                });
+        }else{
+            interaction.reply({content: "Devi essere connesso a un canale vocale",ephemeral: true});
+        }
+    }
 });
 
 client.on(Events.PresenceUpdate, async (oldPresence, newPresence)  => {
@@ -118,6 +137,18 @@ async function fetchAndPlay(voiceChannelId,presence, callback, error){
     }
 }
 
+async function manualPlay(voiceChannelId,url,callback,error){
+    var messageInfo = {
+        url: undefined,
+        thumbnail: undefined,
+        duration: undefined
+    }
+
+    var connection = connectVoiceChannel(voiceChannelId);
+    playSong(connection,url);
+    callback(connection,url);
+
+}
 function getUserVoiceChannel(voice){
     if(voice != null)
     return voice;
