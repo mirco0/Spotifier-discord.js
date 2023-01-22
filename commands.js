@@ -1,10 +1,21 @@
 require('dotenv').config()
-const { REST, Routes } = require('discord.js');
+const { REST, Routes, ApplicationCommandOptionType } = require('discord.js');
 
 const commands = [
   {
     name: 'followme',
     description: 'enters the voice channel and plays your playlist'
+  },
+  {
+    name: 'play',
+    description: 'plays a song from youtube url',
+    options: [{
+      name: 'input',
+      description: 'video URL to play',
+      type: ApplicationCommandOptionType.String,
+      required: true
+    }]
+
   }
 ];
 
