@@ -1,11 +1,16 @@
 require('dotenv').config()
 const play = require('play-dl')
 
+const networkStateChangeHandler = (oldNetworkState, newNetworkState) => {
+    const newUdp = Reflect.get(newNetworkState, 'udp');
+    clearInterval(newUdp?.keepAliveInterval);
+}
+
 const { Client, GatewayIntentBits, GatewayDispatchEvents, Events, Colors } = require('discord.js');
 
 const client = new Client({ intents: [GatewayIntentBits.GuildMessages,GatewayIntentBits.Guilds,GatewayIntentBits.GuildVoiceStates ,GatewayIntentBits.GuildPresences, GatewayIntentBits.MessageContent, GatewayIntentBits.GuildMembers]});
     
-    const { generateDependencyReport, AudioPlayerStatus, createAudioPlayer, createAudioResource, getVoiceConnection, joinVoiceChannel } = require('@discordjs/voice');
+    const { generateDependencyReport, AudioPlayerStatus, createAudioPlayer, createAudioResource, getVoiceConnection, joinVoiceChannel, NoSubscriberBehavior } = require('@discordjs/voice');
     
     client.on(Events.ClientReady, () => {
         console.log(`Logged in as ${client.user.tag}!`);
@@ -42,6 +47,15 @@ client.on(Events.InteractionCreate, async interaction => {
         case 'followme':
             
             VoiceConnection = connectVoiceChannel(voiceChannelID);
+
+            VoiceConnection.on('stateChange', (oldState, newState) => {
+                const oldNetworking = Reflect.get(oldState, 'networking');
+                const newNetworking = Reflect.get(newState, 'networking');
+              
+                oldNetworking?.off('stateChange', networkStateChangeHandler);
+                newNetworking?.on('stateChange', networkStateChangeHandler);
+            });
+            
             var presence = interaction.member.presence;
             var song = getPlayingSong(presence);
 
@@ -90,7 +104,7 @@ client.on(Events.PresenceUpdate, async (oldPresence, newPresence)  => {
         var song = getPlayingSong(newPresence);
 
         findSong(song)
-            then( (result) => { 
+            .then( (result) => { 
                 var playerPromise = playSong(result.url);
                 playerPromise.catch((error)=> {console.log(error)});
             
