@@ -4,7 +4,7 @@ module.exports = {
         jsonObj = {}
         jsonObj.access_token = json.access_token
         jsonObj.refresh_token = json.refresh_token
-        fs.writeFile('Alejandro.json', JSON.stringify(jsonObj), 'utf8', function () { console.log("File salvato"); });
+        fs.writeFile('Alejandro.json', JSON.stringify(jsonObj), 'utf8', function () { console.log("File Saved"); });
     },
     editFile(json){
         var jsonObj = JSON.parse(fs.readFileSync('Alejandro.json', 'utf8'));

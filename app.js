@@ -11,13 +11,16 @@ const { Client, GatewayIntentBits, GatewayDispatchEvents, Events, Colors } = req
 const client = new Client({ intents: [GatewayIntentBits.GuildMessages,GatewayIntentBits.Guilds,GatewayIntentBits.GuildVoiceStates ,GatewayIntentBits.GuildPresences, GatewayIntentBits.MessageContent, GatewayIntentBits.GuildMembers]});
     
     const { generateDependencyReport, AudioPlayerStatus, createAudioPlayer, createAudioResource, getVoiceConnection, joinVoiceChannel, NoSubscriberBehavior } = require('@discordjs/voice');
+const { SpotifyEvents, SpotifyAPI } = require('./spotifyAPI');
     
     client.on(Events.ClientReady, () => {
         console.log(`Logged in as ${client.user.tag}!`);
 });
 
+
 const player = createAudioPlayer();
 var queue = [];
+
 /**
  * userID used to follow user's presence
  * voiceChannelID used to connect to voice channel
@@ -121,15 +124,9 @@ client.on(Events.PresenceUpdate, async (oldPresence, newPresence)  => {
     }
 });
 
-/**
- * 
- * @param {*} voiceChannelID
- * @param {*} presence
- * @returns
- */
-async function followSpotifyPresence(){
+SpotifyAPI.on(SpotifyEvents.OnSong, function(){
 
-}
+})
 
 /**
  * Gets in input a song object and searches it on youtube
