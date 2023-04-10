@@ -6,6 +6,7 @@ const EventEmitter = require('events');
 
 const redirect_uri = 'http://localhost:3000'
 const scope ='user-read-private user-read-email user-read-playback-state'
+var token
 const SpotifyAPI = new EventEmitter();
 
 var polling = { printing:undefined, fetching:undefined}
@@ -62,7 +63,6 @@ module.exports = {
         })
             .then((response) =>response.json())
             .then((json) => {
-                console.log(json)
                 saveToFile(json)
             })
             .catch(error => {
@@ -73,7 +73,7 @@ module.exports = {
     async regenerateToken(callback){
         var obj = JSON.parse(fs.readFileSync('Alejandro.json', 'utf8'));
         console.log('Regenerating Access Token')
-    
+        var result = false
         await fetch('https://accounts.spotify.com/api/token?',{
             method: 'POST',
             body: querystring.stringify({
@@ -87,28 +87,35 @@ module.exports = {
                 'Content-type': 'application/x-www-form-urlencoded; charset=UTF-8',
             },
         })
-        .then((response) => {
-
+        .then(async (response) => {
             switch(response.status){
-                case 200: response.json()
+                case 200:
+                    response.json()
                         .then((json) => {
                             editFile(json)
+                            token = json.access_token
                             callback()
                         })
-                        .catch((error) => console.log(error))
-                        break; 
-                case 400: response.json().then((json) => console.log(json.error_description)); break
-                case 401: console.log('Unauthorized'); break
-                case 503: case 502: console.log("Error from server"); break
-            }
+                        .catch((error) => {
+                            console.log(error)
+                        });
+                        result = true
+                    break
+                case 400:
+                    json = await response.json();
+                    console.log(json.error_description);                                        result = false; break
+                case 401:           console.log('Unauthorized');                                break
+                case 503: case 502: console.log("Error from server");                           break
+            };
         })
         .catch( error => {
             console.log("Cannot regenerate Access Token")
             console.log(error)
         })
+        return result
     },
 
-    async fetchWebApi(endpoint, method, body,token) {
+    async fetchWebApi(endpoint, method, body) {
 
         const res = await fetch(`https://api.spotify.com/${endpoint}`, {
             headers: {
@@ -122,24 +129,34 @@ module.exports = {
             default:  return res.text()
             case 200: return res.json()
             case 204: return null
-            case 401: module.exports.regenerateToken(function(){ module.exports.fetchWebApi(endpoint,method,body,token) }); return "The token expired"
+            case 401: 
+                json = await res.json()
+                console.log(json.error.message)
+                if(json.error.message == 'The access token expired' || 'Invalid access token'){
+                    var regenerated = await module.exports.regenerateToken(function(){ module.exports.fetchWebApi(endpoint,method,body) });
+                    if(!regenerated){
+                        console.log("Shutting down")
+                        process.exit()
+                    }
+                }else{
+                    console.log(jsonM.error.message)
+                }
+                return json.error.message
             case 429: return "Too many request, limit exceeded";
         }
     },
 
     startPolling(){
         var obj = JSON.parse(fs.readFileSync('Alejandro.json', 'utf8'));
-        var token = obj.access_token
+        token = obj.access_token
         var lastProgress = Number.MAX_VALUE; 
 
         polling.fetching = setInterval(async function(){
-            var res = await module.exports.fetchWebApi('v1/me/player','GET',undefined,token)
+            var res = await module.exports.fetchWebApi('v1/me/player','GET')
             if(!res) return
 
             if(res.is_playing && lastProgress > res.progress_ms){
                 SpotifyAPI.emit(SpotifyEvents.OnSong,res)
-                //TODO: REMOVE (test for when it gets fired twice in 2 consecutive fetch)
-                process.stdout.write(`|         Last: ${lastProgress}, current ${res.progress_ms}`)
             }
             lastProgress = res.progress_ms - 1200
 
