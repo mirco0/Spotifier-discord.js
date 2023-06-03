@@ -19,6 +19,11 @@ const { SpotifyEvents, SpotifyAPI } = require('./spotifyAPI');
 
 
 const player = createAudioPlayer();
+player.on(AudioPlayerStatus.Idle, () => {
+
+    setTimeout(checkAndDisconnect,60000);
+});
+
 var queue = [];
 
 /**
@@ -42,7 +47,6 @@ client.on(Events.InteractionCreate, async interaction => {
 
     if(!voiceChannelID){
         interaction.reply({content: "Devi essere connesso a un canale vocale",ephemeral: true});
-        // resetVariables();
         return;
     }
     
@@ -100,8 +104,8 @@ client.on(Events.InteractionCreate, async interaction => {
 });
 
 client.on(Events.PresenceUpdate, async (oldPresence, newPresence)  => {
-    times = (times+=1)%2;   //Quick FIX remove asap
-    if(times == 0) return   //Quick FIX remove asap
+    // times = (times+=1)%2;   //Quick FIX remove asap
+    // if(times == 0) return   //Quick FIX remove asap
     if(newPresence.userId == userID){
         
         var song = getPlayingSong(newPresence);
@@ -118,7 +122,6 @@ client.on(Events.PresenceUpdate, async (oldPresence, newPresence)  => {
             .catch( (error) => {
                 channel.send(error);
             } );
-
             
 
     }
@@ -193,11 +196,6 @@ async function playSong(url){
 
     VoiceConnection.subscribe(player);
     player.play(resource);
-    
-    player.on(AudioPlayerStatus.Idle, () => {
-
-        setTimeout(checkAndDisconnect,60000);
-    });
 
     return Promise.resolve();
 }
@@ -250,7 +248,7 @@ function getPlayingSong(presence){
 
 function checkAndDisconnect(){
     if(player.state.status != AudioPlayerStatus.Playing){
-        connection.disconnect();
+        VoiceConnection.disconnect();
         console.log(`Disconnected Voice Channel: "${voiceChannelID.name}"`);
         channel.send("Disconnesso dal canale Vocale per Inattività");
         resetVariables();
