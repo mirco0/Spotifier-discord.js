@@ -84,12 +84,12 @@ client.on(Events.InteractionCreate, async interaction => {
 
         case 'play':
 
-            var connection = connectVoiceChannel(voiceChannelID);
+            VoiceConnection = connectVoiceChannel(voiceChannelID);
             var url = interaction.options.getString('input');
             
             var videoFromURL = getSongFromURL(url);
             videoFromURL.then( (result) => {
-                var playerPromise = playSong(connection,url)
+                var playerPromise = playSong(url)
                     .then()
                     .catch((error)=> {console.log(error)});
 
