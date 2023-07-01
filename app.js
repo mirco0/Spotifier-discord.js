@@ -6,33 +6,31 @@ const networkStateChangeHandler = (oldNetworkState, newNetworkState) => {
     clearInterval(newUdp?.keepAliveInterval);
 }
 
-const { Client, GatewayIntentBits, GatewayDispatchEvents, Events, Colors } = require('discord.js');
+const { Client, GatewayIntentBits, GatewayDispatchEvents, Events, Colors, Presence } = require('discord.js');
 
-const client = new Client({ intents: [GatewayIntentBits.GuildMessages,GatewayIntentBits.Guilds,GatewayIntentBits.GuildVoiceStates ,GatewayIntentBits.GuildPresences, GatewayIntentBits.MessageContent, GatewayIntentBits.GuildMembers]});
-    
-    const { generateDependencyReport, AudioPlayerStatus, createAudioPlayer, createAudioResource, getVoiceConnection, joinVoiceChannel, NoSubscriberBehavior } = require('@discordjs/voice');
+const client = new Client({ intents: [GatewayIntentBits.GuildMessages,GatewayIntentBits.Guilds,GatewayIntentBits.GuildVoiceStates ,GatewayIntentBits.GuildPresences, GatewayIntentBits.MessageContent, GatewayIntentBits.GuildMembers]});    
+const { generateDependencyReport, AudioPlayerStatus, createAudioPlayer, createAudioResource, getVoiceConnection, joinVoiceChannel, NoSubscriberBehavior } = require('@discordjs/voice');
 const { SpotifyEvents, SpotifyAPI } = require('./spotifyAPI');
-    
-    client.on(Events.ClientReady, () => {
-        console.log(`Logged in as ${client.user.tag}!`);
-});
 
+client.on(Events.ClientReady, () => {
+    console.log(`Logged in as ${client.user.tag}!`);
+});
 
 const player = createAudioPlayer();
 player.on(AudioPlayerStatus.Idle, () => {
 
     setTimeout(checkAndDisconnect,60000);
 });
-
 var queue = [];
 
 /**
  * userID used to follow user's presence
+ * guild used to avoid firing event multiple times (caused by the presence update from possble multiple servers) 
  * voiceChannelID used to connect to voice channel
  * channel used to send messages where the command was executed
  * VoiceConnection used to stream audio in a VoiceChannel
  */
-var userID,voiceChannelID,channel,VoiceConnection;
+var userID,guild,voiceChannelID,channel,VoiceConnection;
 
 //QUICK FIX
 var times = 0;
@@ -44,6 +42,7 @@ client.on(Events.InteractionCreate, async interaction => {
     channel = interaction.channel;
     voiceChannelID = interaction.member.voice.channel;
     userID = interaction.user.id;
+    guild = interaction.guild;
 
     if(!voiceChannelID){
         interaction.reply({content: "Devi essere connesso a un canale vocale",ephemeral: true});
@@ -104,9 +103,7 @@ client.on(Events.InteractionCreate, async interaction => {
 });
 
 client.on(Events.PresenceUpdate, async (oldPresence, newPresence)  => {
-    // times = (times+=1)%2;   //Quick FIX remove asap
-    // if(times == 0) return   //Quick FIX remove asap
-    if(newPresence.userId == userID){
+    if(newPresence.userId == userID && newPresence.guild == guild){
         
         var song = getPlayingSong(newPresence);
 
@@ -122,7 +119,6 @@ client.on(Events.PresenceUpdate, async (oldPresence, newPresence)  => {
             .catch( (error) => {
                 channel.send(error);
             } );
-            
 
     }
 });
@@ -256,7 +252,7 @@ function checkAndDisconnect(){
 }
 
 function resetVariables(){
-    userID = voiceChannelID = channel = undefined;
+    userID = voiceChannelID = channel = guild = undefined;
     times = 0;
 }
 
